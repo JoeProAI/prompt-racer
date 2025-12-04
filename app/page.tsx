@@ -25,7 +25,6 @@ export default function Home() {
   const startRace = async () => {
     if (!input.trim() || isRacing) return;
 
-    console.log('🏁 Starting race...');
     setIsRacing(true);
     setRaceData(null);
     setShowResults(true);
@@ -33,7 +32,6 @@ export default function Home() {
     setRaceStartTime(startTime);
 
     try {
-      console.log('📡 Fetching from /api/race...');
       const response = await fetch('/api/race', {
         method: 'POST',
         headers: {
@@ -42,9 +40,7 @@ export default function Home() {
         body: JSON.stringify({ message: input }),
       });
 
-      console.log('📥 Response received:', response.status);
       const data = await response.json();
-      console.log('📦 Data:', data);
 
       if (response.ok) {
         // Add minimum display time of 2 seconds so you can see the race
@@ -52,20 +48,14 @@ export default function Home() {
         const minDisplayTime = 2000;
         const remainingTime = Math.max(0, minDisplayTime - elapsedTime);
 
-        console.log(`⏳ Waiting ${remainingTime}ms more to show race...`);
         await new Promise(resolve => setTimeout(resolve, remainingTime));
-
-        console.log('✅ Setting race data:', data);
         setRaceData(data);
       } else {
-        console.error('❌ Race failed:', data.error);
-        alert(`Race failed: ${data.error}`);
+        console.error('Race failed:', data.error);
       }
     } catch (error) {
-      console.error('💥 Failed to start race:', error);
-      alert(`Failed to start race: ${error}`);
+      console.error('Failed to start race:', error);
     } finally {
-      console.log('🏁 Race complete, setting isRacing to false');
       setIsRacing(false);
     }
   };
@@ -128,13 +118,7 @@ export default function Home() {
 
         {/* Racing Grid */}
         {showResults && (
-          <>
-            <div className="text-center mb-4">
-              <p className="text-gray-400">
-                Debug: isRacing={String(isRacing)}, hasData={String(!!raceData)}
-              </p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {['GPT-4o', 'Claude Sonnet 4.5', 'Gemini 2.0 Flash', 'Grok 2'].map((modelName, index) => {
               const result = raceData?.results.find((r) => r.model === modelName);
               const isWinner = raceData?.winner === modelName;
@@ -199,7 +183,6 @@ export default function Home() {
               );
             })}
           </div>
-          </>
         )}
 
         {/* Race Stats */}
