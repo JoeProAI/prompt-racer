@@ -20,12 +20,14 @@ export default function Home() {
   const [isRacing, setIsRacing] = useState(false);
   const [raceData, setRaceData] = useState<RaceState | null>(null);
   const [raceStartTime, setRaceStartTime] = useState<number | null>(null);
+  const [showResults, setShowResults] = useState(false);
 
   const startRace = async () => {
     if (!input.trim() || isRacing) return;
 
     setIsRacing(true);
     setRaceData(null);
+    setShowResults(true);
     setRaceStartTime(Date.now());
 
     try {
@@ -40,6 +42,12 @@ export default function Home() {
       const data = await response.json();
 
       if (response.ok) {
+        // Add minimum display time of 2 seconds so you can see the race
+        const elapsedTime = Date.now() - (raceStartTime || Date.now());
+        const minDisplayTime = 2000;
+        const remainingTime = Math.max(0, minDisplayTime - elapsedTime);
+
+        await new Promise(resolve => setTimeout(resolve, remainingTime));
         setRaceData(data);
       } else {
         console.error('Race failed:', data.error);
@@ -108,7 +116,7 @@ export default function Home() {
         </div>
 
         {/* Racing Grid */}
-        {(isRacing || raceData) && (
+        {showResults && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {['GPT-4o', 'Claude Sonnet 4.5', 'Gemini 2.0 Flash', 'Grok 2'].map((modelName, index) => {
               const result = raceData?.results.find((r) => r.model === modelName);
@@ -198,7 +206,7 @@ export default function Home() {
         )}
 
         {/* Empty State */}
-        {!isRacing && !raceData && (
+        {!showResults && (
           <div className="text-center text-gray-500 mt-12">
             <div className="text-6xl mb-4">🏁</div>
             <p className="text-xl">Enter a prompt above to start the race!</p>
