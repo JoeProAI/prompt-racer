@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { decrementCredits } from '@/lib/credits';
+import { checkAndDecrementCredits } from '@/lib/credits';
 
 // Initialize AI clients lazily with error handling
 function getOpenAI() {
@@ -60,16 +60,18 @@ export async function POST(req: NextRequest) {
 
     // ATOMICALLY check and decrement credits
     // This prevents cookie refresh bypass by checking BEFORE running race
-    const creditResult = await decrementCredits();
+    const creditCheck = await checkAndDecrementCredits();
 
-    // HARD BLOCK: If decrement returns 0 credits AND hasCredits is false,
-    // they had 0 credits to begin with - block immediately
-    if (creditResult.remaining === 0 && !creditResult.hasCredits) {
+    // HARD BLOCK: If not allowed, user has 0 credits - block immediately
+    if (!creditCheck.allowed) {
+      console.log('[RACE] ❌ Race blocked - no credits');
       return NextResponse.json(
         { error: 'No credits remaining', needsPayment: true },
         { status: 402 }
       );
     }
+
+    console.log('[RACE] ✅ Race allowed - credits:', creditCheck.credits.remaining);
 
     // Race all 4 models in parallel with timing
     const raceResults = await Promise.allSettled([
@@ -201,7 +203,7 @@ export async function POST(req: NextRequest) {
       results,
       winner,
       totalTime: Math.max(...results.map(r => r.responseTime)),
-      creditsRemaining: creditResult.remaining,
+      creditsRemaining: creditCheck.credits.remaining,
     });
   } catch (error) {
     console.error('Error in race:', error);

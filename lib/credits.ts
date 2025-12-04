@@ -37,7 +37,10 @@ export async function getCredits(): Promise<CreditStatus> {
   };
 }
 
-export async function decrementCredits(): Promise<CreditStatus> {
+export async function checkAndDecrementCredits(): Promise<{
+  allowed: boolean;
+  credits: CreditStatus;
+}> {
   const cookieStore = await cookies();
   const creditCookie = cookieStore.get(COOKIE_NAME);
 
@@ -58,19 +61,22 @@ export async function decrementCredits(): Promise<CreditStatus> {
     }
   }
 
-  // Check if user has credits BEFORE decrementing
+  // CRITICAL: Check BEFORE decrementing - if 0, block immediately
   if (current <= 0) {
-    console.log('[CREDITS] No credits remaining, blocking');
+    console.log('[CREDITS] ❌ BLOCKED - No credits remaining');
     return {
-      remaining: 0,
-      hasCredits: false,
-      isFree: false,
+      allowed: false,
+      credits: {
+        remaining: 0,
+        hasCredits: false,
+        isFree: false,
+      },
     };
   }
 
-  // Decrement and save
+  // User has credits - allow and decrement
   const remaining = current - 1;
-  console.log('[CREDITS] Decrementing from', current, 'to', remaining);
+  console.log('[CREDITS] ✅ ALLOWED - Decrementing from', current, 'to', remaining);
 
   cookieStore.set(COOKIE_NAME, remaining.toString(), {
     maxAge: 60 * 60 * 24 * 365, // 1 year
@@ -82,10 +88,19 @@ export async function decrementCredits(): Promise<CreditStatus> {
   console.log('[CREDITS] Cookie saved:', remaining);
 
   return {
-    remaining,
-    hasCredits: remaining > 0,
-    isFree: remaining <= FREE_RACES,
+    allowed: true,
+    credits: {
+      remaining,
+      hasCredits: remaining > 0,
+      isFree: remaining <= FREE_RACES,
+    },
   };
+}
+
+// Legacy function for backward compatibility
+export async function decrementCredits(): Promise<CreditStatus> {
+  const result = await checkAndDecrementCredits();
+  return result.credits;
 }
 
 export async function addCredits(amount: number): Promise<CreditStatus> {
