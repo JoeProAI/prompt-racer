@@ -80,6 +80,7 @@ export async function checkAndDecrementCredits(): Promise<{
   const remaining = current - 1;
   console.log('[CREDITS] ✅ ALLOWED - Decrementing from', current, 'to', remaining);
 
+  // Set cookie
   cookieStore.set(COOKIE_NAME, remaining.toString(), {
     maxAge: 60 * 60 * 24 * 365, // 1 year
     path: '/',
@@ -87,7 +88,7 @@ export async function checkAndDecrementCredits(): Promise<{
     sameSite: 'lax',
   });
 
-  console.log('[CREDITS] Cookie saved:', remaining);
+  console.log('[CREDITS] Cookie set to:', remaining);
 
   return {
     allowed: true,
@@ -124,6 +125,8 @@ export async function addCredits(amount: number): Promise<CreditStatus> {
     httpOnly: true,
     sameSite: 'lax',
   });
+
+  console.log('[CREDITS] Added', amount, 'credits. New total:', newTotal);
 
   return {
     remaining: newTotal,
