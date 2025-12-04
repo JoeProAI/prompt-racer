@@ -1,8 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  basePath: '/prompt-racer',
-  assetPrefix: '/prompt-racer',
+  // basePath only needed when deployed as subpath of another site
+  // For standalone deployment, leave empty
 };
 
 export default nextConfig;
