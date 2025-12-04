@@ -25,6 +25,17 @@ export default function Home() {
   const [creditsRemaining, setCreditsRemaining] = useState(3);
   const [showPaywall, setShowPaywall] = useState(false);
 
+  // Sync localStorage with server credits (makes cookie clearing harder to bypass)
+  useEffect(() => {
+    const localCredits = localStorage.getItem('pr_local_credits');
+    if (localCredits) {
+      const parsed = parseInt(localCredits, 10);
+      if (!isNaN(parsed)) {
+        setCreditsRemaining(parsed);
+      }
+    }
+  }, []);
+
   // Handle successful payment from Stripe
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -41,6 +52,7 @@ export default function Home() {
         .then((res) => res.json())
         .then((data) => {
           setCreditsRemaining(data.creditsRemaining);
+          localStorage.setItem('pr_local_credits', data.creditsRemaining.toString());
           // Clean URL
           window.history.replaceState({}, '', '/');
         })
@@ -50,6 +62,13 @@ export default function Home() {
 
   const startRace = async () => {
     if (!input.trim() || isRacing) return;
+
+    // Client-side check - if localStorage shows 0 credits, show paywall
+    const localCredits = localStorage.getItem('pr_local_credits');
+    if (localCredits && parseInt(localCredits, 10) <= 0) {
+      setShowPaywall(true);
+      return;
+    }
 
     setIsRacing(true);
     setRaceData(null);
@@ -76,9 +95,10 @@ export default function Home() {
       }
 
       if (response.ok) {
-        // Update credits remaining
+        // Update credits remaining and sync to localStorage
         if (data.creditsRemaining !== undefined) {
           setCreditsRemaining(data.creditsRemaining);
+          localStorage.setItem('pr_local_credits', data.creditsRemaining.toString());
         }
 
         // Add minimum display time of 2 seconds so you can see the race

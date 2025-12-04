@@ -58,11 +58,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Decrement credits FIRST - it will check and decrement atomically
-    // If they have 0 credits, it will return hasCredits: false
-    const updatedCredits = await decrementCredits();
+    // ATOMICALLY check and decrement credits
+    // This prevents cookie refresh bypass by checking BEFORE running race
+    const creditResult = await decrementCredits();
 
-    if (!updatedCredits.hasCredits && updatedCredits.remaining === 0) {
+    // HARD BLOCK: If decrement returns 0 credits AND hasCredits is false,
+    // they had 0 credits to begin with - block immediately
+    if (creditResult.remaining === 0 && !creditResult.hasCredits) {
       return NextResponse.json(
         { error: 'No credits remaining', needsPayment: true },
         { status: 402 }
@@ -199,7 +201,7 @@ export async function POST(req: NextRequest) {
       results,
       winner,
       totalTime: Math.max(...results.map(r => r.responseTime)),
-      creditsRemaining: updatedCredits.remaining,
+      creditsRemaining: creditResult.remaining,
     });
   } catch (error) {
     console.error('Error in race:', error);
