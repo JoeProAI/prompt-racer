@@ -17,7 +17,14 @@ export async function getCredits(): Promise<CreditStatus> {
   const creditCookie = cookieStore.get(COOKIE_NAME);
 
   if (!creditCookie) {
-    // New user, give them free races
+    // New user, give them free races and set the cookie
+    console.log('[CREDITS] No cookie found, initializing with FREE_RACES:', FREE_RACES);
+    cookieStore.set(COOKIE_NAME, FREE_RACES.toString(), {
+      maxAge: 60 * 60 * 24 * 365, // 1 year
+      path: '/',
+      httpOnly: true,
+      sameSite: 'lax',
+    });
     return {
       remaining: FREE_RACES,
       hasCredits: true,
@@ -26,6 +33,7 @@ export async function getCredits(): Promise<CreditStatus> {
   }
 
   const remaining = parseInt(creditCookie.value, 10);
+  console.log('[CREDITS] Cookie value:', creditCookie.value, '| Parsed:', remaining);
 
   return {
     remaining: isNaN(remaining) ? 0 : remaining,
@@ -45,8 +53,11 @@ export async function decrementCredits(): Promise<CreditStatus> {
     if (isNaN(current)) current = FREE_RACES;
   }
 
+  console.log('[CREDITS] Before decrement:', current);
+
   // Decrement ONLY if there are credits
   if (current <= 0) {
+    console.log('[CREDITS] No credits remaining, blocking');
     return {
       remaining: 0,
       hasCredits: false,
@@ -56,12 +67,16 @@ export async function decrementCredits(): Promise<CreditStatus> {
 
   const remaining = current - 1;
 
+  console.log('[CREDITS] After decrement:', remaining);
+
   cookieStore.set(COOKIE_NAME, remaining.toString(), {
     maxAge: 60 * 60 * 24 * 365, // 1 year
     path: '/',
     httpOnly: true,
     sameSite: 'lax',
   });
+
+  console.log('[CREDITS] Cookie set to:', remaining);
 
   return {
     remaining,
