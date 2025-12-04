@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { getCredits, decrementCredits } from '@/lib/credits';
+import { decrementCredits } from '@/lib/credits';
 
 // Initialize AI clients lazily with error handling
 function getOpenAI() {
@@ -49,22 +49,23 @@ type ModelResult = {
 
 export async function POST(req: NextRequest) {
   try {
-    // Check credits before racing
-    const creditStatus = await getCredits();
-
-    if (!creditStatus.hasCredits) {
-      return NextResponse.json(
-        { error: 'No credits remaining', needsPayment: true },
-        { status: 402 }
-      );
-    }
-
     const { message } = await req.json();
 
     if (!message) {
       return NextResponse.json(
         { error: 'Message is required' },
         { status: 400 }
+      );
+    }
+
+    // Decrement credits FIRST - it will check and decrement atomically
+    // If they have 0 credits, it will return hasCredits: false
+    const updatedCredits = await decrementCredits();
+
+    if (!updatedCredits.hasCredits && updatedCredits.remaining === 0) {
+      return NextResponse.json(
+        { error: 'No credits remaining', needsPayment: true },
+        { status: 402 }
       );
     }
 
@@ -193,9 +194,6 @@ export async function POST(req: NextRequest) {
           prev.responseTime < current.responseTime ? prev : current
         ).model
       : null;
-
-    // Decrement credits after successful race
-    const updatedCredits = await decrementCredits();
 
     return NextResponse.json({
       results,

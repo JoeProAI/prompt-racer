@@ -17,14 +17,8 @@ export async function getCredits(): Promise<CreditStatus> {
   const creditCookie = cookieStore.get(COOKIE_NAME);
 
   if (!creditCookie) {
-    // New user, give them free races and set the cookie
-    console.log('[CREDITS] No cookie found, initializing with FREE_RACES:', FREE_RACES);
-    cookieStore.set(COOKIE_NAME, FREE_RACES.toString(), {
-      maxAge: 60 * 60 * 24 * 365, // 1 year
-      path: '/',
-      httpOnly: true,
-      sameSite: 'lax',
-    });
+    // New user, return free races (cookie will be set on first decrement)
+    console.log('[CREDITS] getCredits: No cookie, returning FREE_RACES:', FREE_RACES);
     return {
       remaining: FREE_RACES,
       hasCredits: true,
@@ -33,12 +27,13 @@ export async function getCredits(): Promise<CreditStatus> {
   }
 
   const remaining = parseInt(creditCookie.value, 10);
-  console.log('[CREDITS] Cookie value:', creditCookie.value, '| Parsed:', remaining);
+  const actualRemaining = isNaN(remaining) ? 0 : remaining;
+  console.log('[CREDITS] getCredits: Cookie value:', creditCookie.value, '| Parsed:', actualRemaining);
 
   return {
-    remaining: isNaN(remaining) ? 0 : remaining,
-    hasCredits: remaining > 0,
-    isFree: remaining <= FREE_RACES,
+    remaining: actualRemaining,
+    hasCredits: actualRemaining > 0,
+    isFree: actualRemaining <= FREE_RACES,
   };
 }
 
@@ -46,16 +41,24 @@ export async function decrementCredits(): Promise<CreditStatus> {
   const cookieStore = await cookies();
   const creditCookie = cookieStore.get(COOKIE_NAME);
 
-  let current = FREE_RACES;
+  // Get current value - if no cookie exists, this is the FIRST race
+  let current: number;
 
-  if (creditCookie) {
+  if (!creditCookie) {
+    // First time user - they have FREE_RACES available
+    current = FREE_RACES;
+    console.log('[CREDITS] First time user, starting with:', current);
+  } else {
     current = parseInt(creditCookie.value, 10);
-    if (isNaN(current)) current = FREE_RACES;
+    if (isNaN(current)) {
+      current = FREE_RACES;
+      console.log('[CREDITS] Invalid cookie, resetting to:', current);
+    } else {
+      console.log('[CREDITS] Current credits from cookie:', current);
+    }
   }
 
-  console.log('[CREDITS] Before decrement:', current);
-
-  // Decrement ONLY if there are credits
+  // Check if user has credits BEFORE decrementing
   if (current <= 0) {
     console.log('[CREDITS] No credits remaining, blocking');
     return {
@@ -65,9 +68,9 @@ export async function decrementCredits(): Promise<CreditStatus> {
     };
   }
 
+  // Decrement and save
   const remaining = current - 1;
-
-  console.log('[CREDITS] After decrement:', remaining);
+  console.log('[CREDITS] Decrementing from', current, 'to', remaining);
 
   cookieStore.set(COOKIE_NAME, remaining.toString(), {
     maxAge: 60 * 60 * 24 * 365, // 1 year
@@ -76,12 +79,12 @@ export async function decrementCredits(): Promise<CreditStatus> {
     sameSite: 'lax',
   });
 
-  console.log('[CREDITS] Cookie set to:', remaining);
+  console.log('[CREDITS] Cookie saved:', remaining);
 
   return {
     remaining,
     hasCredits: remaining > 0,
-    isFree: remaining < FREE_RACES,
+    isFree: remaining <= FREE_RACES,
   };
 }
 
