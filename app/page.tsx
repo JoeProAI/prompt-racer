@@ -136,8 +136,17 @@ export default function Home() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-black p-4">
-      <div className="w-full max-w-7xl">
+    <div className="relative flex min-h-screen flex-col items-center justify-center bg-black p-4">
+      {/* Hero Background NFT */}
+      <div
+        className="fixed inset-0 z-0 bg-cover bg-center bg-no-repeat opacity-30"
+        style={{
+          backgroundImage: 'url(https://ebfeivgmoxl54igpv4z37ggz5n7i6iwpmpi4ykoiw4pdk2jhglra.arweave.net/IEpEVMx1194gz68zv5jZ636PIs9j0cwpyLceNWknMuI)',
+        }}
+      />
+      {/* Gradient overlay for better text readability */}
+      <div className="fixed inset-0 z-0 bg-gradient-to-b from-black/50 via-black/30 to-black/50" />
+      <div className="relative z-10 w-full max-w-7xl">
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-5xl font-bold text-[#ffd700] mb-2" style={{ textShadow: '0 0 30px rgba(255, 215, 0, 0.8)' }}>
