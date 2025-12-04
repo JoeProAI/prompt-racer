@@ -151,7 +151,7 @@ export async function POST(req: NextRequest) {
         try {
           const grokClient = getGrokClient();
           const completion = await grokClient.chat.completions.create({
-            model: 'grok-4.1-fast',
+            model: 'grok-4-1-fast-non-reasoning',
             messages: [{ role: 'user', content: message }],
           });
           const responseTime = Date.now() - startTime;
