@@ -44,6 +44,8 @@ export async function checkAndDecrementCredits(): Promise<{
   const cookieStore = await cookies();
   const creditCookie = cookieStore.get(COOKIE_NAME);
 
+  console.log('[CREDITS] Raw cookie:', creditCookie ? creditCookie.value : 'null');
+
   // Get current value - if no cookie exists, this is the FIRST race
   let current: number;
 
