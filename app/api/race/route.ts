@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { getCredits, decrementCredits } from '@/lib/credits';
 
 // Initialize AI clients lazily with error handling
 function getOpenAI() {
@@ -48,6 +49,16 @@ type ModelResult = {
 
 export async function POST(req: NextRequest) {
   try {
+    // Check credits before racing
+    const creditStatus = await getCredits();
+
+    if (!creditStatus.hasCredits) {
+      return NextResponse.json(
+        { error: 'No credits remaining', needsPayment: true },
+        { status: 402 }
+      );
+    }
+
     const { message } = await req.json();
 
     if (!message) {
@@ -134,24 +145,24 @@ export async function POST(req: NextRequest) {
         }
       })(),
 
-      // Grok 2
+      // Grok 4.1 Fast
       (async () => {
         const startTime = Date.now();
         try {
           const grokClient = getGrokClient();
           const completion = await grokClient.chat.completions.create({
-            model: 'grok-2-latest',
+            model: 'grok-4.1-fast',
             messages: [{ role: 'user', content: message }],
           });
           const responseTime = Date.now() - startTime;
           return {
-            model: 'Grok 2',
+            model: 'Grok 4.1 Fast',
             content: completion.choices[0]?.message?.content || 'No response',
             responseTime,
           };
         } catch (error) {
           return {
-            model: 'Grok 2',
+            model: 'Grok 4.1 Fast',
             content: '',
             responseTime: Date.now() - startTime,
             error: 'Failed to get response',
@@ -165,7 +176,7 @@ export async function POST(req: NextRequest) {
       if (result.status === 'fulfilled') {
         return result.value;
       } else {
-        const models = ['GPT-4o', 'Claude Sonnet 4.5', 'Gemini 2.0 Flash', 'Grok 2'];
+        const models = ['GPT-4o', 'Claude Sonnet 4.5', 'Gemini 2.0 Flash', 'Grok 4.1 Fast'];
         return {
           model: models[index],
           content: '',
@@ -183,10 +194,14 @@ export async function POST(req: NextRequest) {
         ).model
       : null;
 
+    // Decrement credits after successful race
+    const updatedCredits = await decrementCredits();
+
     return NextResponse.json({
       results,
       winner,
       totalTime: Math.max(...results.map(r => r.responseTime)),
+      creditsRemaining: updatedCredits.remaining,
     });
   } catch (error) {
     console.error('Error in race:', error);

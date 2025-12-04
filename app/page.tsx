@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import PaywallModal from './components/PaywallModal';
 
 type ModelResult = {
   model: string;
@@ -21,6 +22,31 @@ export default function Home() {
   const [raceData, setRaceData] = useState<RaceState | null>(null);
   const [raceStartTime, setRaceStartTime] = useState<number | null>(null);
   const [showResults, setShowResults] = useState(false);
+  const [creditsRemaining, setCreditsRemaining] = useState(3);
+  const [showPaywall, setShowPaywall] = useState(false);
+
+  // Handle successful payment from Stripe
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const success = params.get('success');
+    const credits = params.get('credits');
+
+    if (success === 'true' && credits) {
+      // Add credits via API
+      fetch('/api/checkout', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credits: parseInt(credits) }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          setCreditsRemaining(data.creditsRemaining);
+          // Clean URL
+          window.history.replaceState({}, '', '/');
+        })
+        .catch((error) => console.error('Failed to add credits:', error));
+    }
+  }, []);
 
   const startRace = async () => {
     if (!input.trim() || isRacing) return;
@@ -42,7 +68,19 @@ export default function Home() {
 
       const data = await response.json();
 
+      if (response.status === 402) {
+        // Out of credits, show paywall
+        setShowPaywall(true);
+        setIsRacing(false);
+        return;
+      }
+
       if (response.ok) {
+        // Update credits remaining
+        if (data.creditsRemaining !== undefined) {
+          setCreditsRemaining(data.creditsRemaining);
+        }
+
         // Add minimum display time of 2 seconds so you can see the race
         const elapsedTime = Date.now() - startTime;
         const minDisplayTime = 2000;
@@ -72,7 +110,7 @@ export default function Home() {
       'GPT-4o': 'border-green-500/50',
       'Claude Sonnet 4.5': 'border-purple-500/50',
       'Gemini 2.0 Flash': 'border-blue-500/50',
-      'Grok 2': 'border-red-500/50',
+      'Grok 4.1 Fast': 'border-red-500/50',
     };
     return colors[model] || 'border-gray-500/50';
   };
@@ -88,6 +126,18 @@ export default function Home() {
           <p className="text-gray-400 text-lg">
             Race 4 AI models simultaneously and see who wins!
           </p>
+          {/* Credits Counter */}
+          <div className="mt-4 inline-block bg-black/40 backdrop-blur-md rounded-lg border border-[#ffd700]/30 px-6 py-2">
+            <span className="text-[#ffd700] font-bold">🎟️ {creditsRemaining} races remaining</span>
+            {creditsRemaining === 0 && (
+              <button
+                onClick={() => setShowPaywall(true)}
+                className="ml-4 text-sm bg-[#ffd700]/20 border border-[#ffd700]/50 text-[#ffd700] px-4 py-1 rounded hover:bg-[#ffd700]/30"
+              >
+                Buy More
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Input Section */}
@@ -119,7 +169,7 @@ export default function Home() {
         {/* Racing Grid */}
         {showResults && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {['GPT-4o', 'Claude Sonnet 4.5', 'Gemini 2.0 Flash', 'Grok 2'].map((modelName, index) => {
+            {['GPT-4o', 'Claude Sonnet 4.5', 'Gemini 2.0 Flash', 'Grok 4.1 Fast'].map((modelName, index) => {
               const result = raceData?.results.find((r) => r.model === modelName);
               const isWinner = raceData?.winner === modelName;
               const modelColor = getModelColor(modelName);
@@ -212,11 +262,18 @@ export default function Home() {
             <div className="text-6xl mb-4">🏁</div>
             <p className="text-xl">Enter a prompt above to start the race!</p>
             <p className="text-sm mt-2 text-gray-600">
-              GPT-4o • Claude Sonnet 4.5 • Gemini 2.0 Flash • Grok 2
+              GPT-4o • Claude Sonnet 4.5 • Gemini 2.0 Flash • Grok 4.1 Fast
             </p>
           </div>
         )}
       </div>
+
+      {/* Paywall Modal */}
+      <PaywallModal
+        isOpen={showPaywall}
+        onClose={() => setShowPaywall(false)}
+        creditsRemaining={creditsRemaining}
+      />
     </div>
   );
 }
