@@ -3,21 +3,41 @@ import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-// Initialize AI clients
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// Initialize AI clients lazily with error handling
+function getOpenAI() {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error('OPENAI_API_KEY not configured');
+  }
+  return new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
+}
 
-const grokClient = new OpenAI({
-  apiKey: process.env.XAI_API_KEY,
-  baseURL: 'https://api.x.ai/v1',
-});
+function getGrokClient() {
+  if (!process.env.XAI_API_KEY) {
+    throw new Error('XAI_API_KEY not configured');
+  }
+  return new OpenAI({
+    apiKey: process.env.XAI_API_KEY,
+    baseURL: 'https://api.x.ai/v1',
+  });
+}
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+function getAnthropic() {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    throw new Error('ANTHROPIC_API_KEY not configured');
+  }
+  return new Anthropic({
+    apiKey: process.env.ANTHROPIC_API_KEY,
+  });
+}
 
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || '');
+function getGoogleAI() {
+  if (!process.env.GOOGLE_API_KEY) {
+    throw new Error('GOOGLE_API_KEY not configured');
+  }
+  return new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
+}
 
 type ModelResult = {
   model: string;
@@ -43,6 +63,7 @@ export async function POST(req: NextRequest) {
       (async () => {
         const startTime = Date.now();
         try {
+          const openai = getOpenAI();
           const completion = await openai.chat.completions.create({
             model: 'gpt-4o',
             messages: [{ role: 'user', content: message }],
@@ -67,6 +88,7 @@ export async function POST(req: NextRequest) {
       (async () => {
         const startTime = Date.now();
         try {
+          const anthropic = getAnthropic();
           const message_response = await anthropic.messages.create({
             model: 'claude-sonnet-4-5-20250929',
             max_tokens: 1024,
@@ -93,6 +115,7 @@ export async function POST(req: NextRequest) {
       (async () => {
         const startTime = Date.now();
         try {
+          const genAI = getGoogleAI();
           const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
           const result = await model.generateContent(message);
           const responseTime = Date.now() - startTime;
@@ -115,6 +138,7 @@ export async function POST(req: NextRequest) {
       (async () => {
         const startTime = Date.now();
         try {
+          const grokClient = getGrokClient();
           const completion = await grokClient.chat.completions.create({
             model: 'grok-2-latest',
             messages: [{ role: 'user', content: message }],
