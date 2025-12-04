@@ -2,26 +2,34 @@
 
 import { useState } from 'react';
 
-type Message = {
-  role: 'user' | 'assistant';
+type ModelResult = {
+  model: string;
   content: string;
+  responseTime: number;
+  error?: string;
+};
+
+type RaceState = {
+  results: ModelResult[];
+  winner: string | null;
+  totalTime: number;
 };
 
 export default function Home() {
-  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isRacing, setIsRacing] = useState(false);
+  const [raceData, setRaceData] = useState<RaceState | null>(null);
+  const [raceStartTime, setRaceStartTime] = useState<number | null>(null);
 
-  const sendMessage = async () => {
-    if (!input.trim() || isLoading) return;
+  const startRace = async () => {
+    if (!input.trim() || isRacing) return;
 
-    const userMessage: Message = { role: 'user', content: input };
-    setMessages((prev) => [...prev, userMessage]);
-    setInput('');
-    setIsLoading(true);
+    setIsRacing(true);
+    setRaceData(null);
+    setRaceStartTime(Date.now());
 
     try {
-      const response = await fetch('/api/chat', {
+      const response = await fetch('/api/race', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -32,100 +40,173 @@ export default function Home() {
       const data = await response.json();
 
       if (response.ok) {
-        const assistantMessage: Message = {
-          role: 'assistant',
-          content: data.reply,
-        };
-        setMessages((prev) => [...prev, assistantMessage]);
+        setRaceData(data);
       } else {
-        const errorMessage: Message = {
-          role: 'assistant',
-          content: `Error: ${data.error}`,
-        };
-        setMessages((prev) => [...prev, errorMessage]);
+        console.error('Race failed:', data.error);
       }
     } catch (error) {
-      const errorMessage: Message = {
-        role: 'assistant',
-        content: 'Failed to send message. Please try again.',
-      };
-      setMessages((prev) => [...prev, errorMessage]);
+      console.error('Failed to start race:', error);
     } finally {
-      setIsLoading(false);
+      setIsRacing(false);
     }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      sendMessage();
+      startRace();
     }
+  };
+
+  const getModelColor = (model: string) => {
+    const colors: Record<string, string> = {
+      'GPT-4o': 'border-green-500/50',
+      'Claude Sonnet 4.5': 'border-purple-500/50',
+      'Gemini 2.0 Flash': 'border-blue-500/50',
+      'Grok 2': 'border-red-500/50',
+    };
+    return colors[model] || 'border-gray-500/50';
   };
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-black p-4">
-      <div className="w-full max-w-4xl bg-black/40 backdrop-blur-md rounded-lg border border-gray-800 shadow-[0_0_30px_rgba(255,215,0,0.15)] flex flex-col h-[700px]">
-        <div className="p-6 border-b border-gray-800">
-          <h1 className="text-3xl font-bold text-[#ffd700]" style={{ textShadow: '0 0 20px rgba(255, 215, 0, 0.6)' }}>
-            Prompt Racer
+      <div className="w-full max-w-7xl">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-5xl font-bold text-[#ffd700] mb-2" style={{ textShadow: '0 0 30px rgba(255, 215, 0, 0.8)' }}>
+            🏁 Prompt Racer
           </h1>
-          <p className="text-gray-400 text-sm mt-1">Powered by GPT-4o</p>
+          <p className="text-gray-400 text-lg">
+            Race 4 AI models simultaneously and see who wins!
+          </p>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-4">
-          {messages.length === 0 && (
-            <div className="text-center text-gray-500 mt-12">
-              <p className="text-lg">Send a message to start racing prompts</p>
-              <p className="text-sm mt-2 text-gray-600">Your AI-powered conversation starts here</p>
-            </div>
-          )}
-          {messages.map((message, index) => (
-            <div
-              key={index}
-              className={`flex ${
-                message.role === 'user' ? 'justify-end' : 'justify-start'
-              }`}
-            >
-              <div
-                className={`max-w-[75%] rounded-lg p-4 ${
-                  message.role === 'user'
-                    ? 'bg-[#ffd700]/10 border border-[#ffd700]/30 text-white'
-                    : 'bg-gray-900/50 border border-gray-800 text-gray-100'
-                }`}
-              >
-                <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
-              </div>
-            </div>
-          ))}
-          {isLoading && (
-            <div className="flex justify-start">
-              <div className="bg-gray-900/50 border border-gray-800 rounded-lg p-4">
-                <p className="text-[#ffd700] animate-pulse">Thinking...</p>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="p-6 border-t border-gray-800">
+        {/* Input Section */}
+        <div className="mb-8 bg-black/40 backdrop-blur-md rounded-lg border border-gray-800 shadow-[0_0_30px_rgba(255,215,0,0.15)] p-6">
           <div className="flex gap-3">
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="Type your message..."
-              className="flex-1 px-4 py-3 bg-black/40 border border-gray-800 rounded-lg text-white placeholder-gray-600 focus:outline-none focus:border-[#ffd700]/50 focus:ring-1 focus:ring-[#ffd700]/50 transition-all"
-              disabled={isLoading}
+              placeholder="Enter your prompt to start the race..."
+              className="flex-1 px-6 py-4 bg-black/40 border border-gray-800 rounded-lg text-white placeholder-gray-600 focus:outline-none focus:border-[#ffd700]/50 focus:ring-2 focus:ring-[#ffd700]/50 transition-all text-lg"
+              disabled={isRacing}
             />
             <button
-              onClick={sendMessage}
-              disabled={isLoading || !input.trim()}
-              className="px-8 py-3 bg-[#ffd700]/20 border border-[#ffd700]/50 text-[#ffd700] rounded-lg hover:bg-[#ffd700]/30 hover:shadow-[0_0_20px_rgba(255,215,0,0.3)] disabled:opacity-40 disabled:cursor-not-allowed transition-all font-medium"
+              onClick={startRace}
+              disabled={isRacing || !input.trim()}
+              className={`px-10 py-4 rounded-lg font-bold text-lg transition-all ${
+                isRacing
+                  ? 'bg-[#ffd700]/10 border-2 border-[#ffd700]/30 text-[#ffd700] animate-pulse'
+                  : 'bg-[#ffd700]/20 border-2 border-[#ffd700]/50 text-[#ffd700] hover:bg-[#ffd700]/30 hover:shadow-[0_0_30px_rgba(255,215,0,0.5)]'
+              } disabled:opacity-40 disabled:cursor-not-allowed`}
             >
-              Send →
+              {isRacing ? '🏁 RACING...' : '🚀 START RACE'}
             </button>
           </div>
         </div>
+
+        {/* Racing Grid */}
+        {(isRacing || raceData) && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {['GPT-4o', 'Claude Sonnet 4.5', 'Gemini 2.0 Flash', 'Grok 2'].map((modelName, index) => {
+              const result = raceData?.results.find((r) => r.model === modelName);
+              const isWinner = raceData?.winner === modelName;
+              const modelColor = getModelColor(modelName);
+
+              return (
+                <div
+                  key={modelName}
+                  className={`relative bg-black/40 backdrop-blur-md rounded-lg border-2 p-6 transition-all ${
+                    isRacing && !result
+                      ? `${modelColor} animate-pulse shadow-[0_0_20px_rgba(255,215,0,0.3)]`
+                      : isWinner
+                      ? 'border-[#ffd700] shadow-[0_0_40px_rgba(255,215,0,0.6)]'
+                      : modelColor
+                  }`}
+                >
+                  {/* Winner Badge */}
+                  {isWinner && (
+                    <div className="absolute -top-4 -right-4 bg-[#ffd700] text-black rounded-full w-12 h-12 flex items-center justify-center text-2xl font-bold shadow-[0_0_20px_rgba(255,215,0,0.8)] animate-bounce">
+                      🏆
+                    </div>
+                  )}
+
+                  {/* Model Header */}
+                  <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-800">
+                    <div>
+                      <h3 className={`text-xl font-bold ${isWinner ? 'text-[#ffd700]' : 'text-white'}`}>
+                        {modelName}
+                      </h3>
+                      {result && (
+                        <p className="text-sm text-gray-400 mt-1">
+                          ⚡ {result.responseTime}ms
+                          {result.error && <span className="text-red-400 ml-2">❌ Error</span>}
+                        </p>
+                      )}
+                    </div>
+                    <div className="text-3xl">
+                      {isRacing && !result ? '💨' : result?.error ? '❌' : '🏁'}
+                    </div>
+                  </div>
+
+                  {/* Response Content */}
+                  <div className="min-h-[200px]">
+                    {isRacing && !result ? (
+                      <div className="flex items-center justify-center h-full">
+                        <div className="text-center">
+                          <div className="text-4xl mb-2 animate-bounce">🏎️</div>
+                          <p className="text-[#ffd700] animate-pulse">Racing...</p>
+                        </div>
+                      </div>
+                    ) : result ? (
+                      <div className="text-gray-300 leading-relaxed whitespace-pre-wrap">
+                        {result.error ? (
+                          <p className="text-red-400">Failed to get response</p>
+                        ) : (
+                          result.content
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Race Stats */}
+        {raceData && !isRacing && (
+          <div className="mt-8 bg-black/40 backdrop-blur-md rounded-lg border border-[#ffd700]/30 shadow-[0_0_30px_rgba(255,215,0,0.15)] p-6">
+            <h3 className="text-2xl font-bold text-[#ffd700] mb-4">🏁 Race Results</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {raceData.results
+                .filter((r) => !r.error)
+                .sort((a, b) => a.responseTime - b.responseTime)
+                .map((result, index) => (
+                  <div key={result.model} className="text-center">
+                    <div className="text-3xl mb-2">
+                      {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '🏁'}
+                    </div>
+                    <p className="text-white font-semibold">{result.model}</p>
+                    <p className="text-[#ffd700] text-sm">{result.responseTime}ms</p>
+                  </div>
+                ))}
+            </div>
+          </div>
+        )}
+
+        {/* Empty State */}
+        {!isRacing && !raceData && (
+          <div className="text-center text-gray-500 mt-12">
+            <div className="text-6xl mb-4">🏁</div>
+            <p className="text-xl">Enter a prompt above to start the race!</p>
+            <p className="text-sm mt-2 text-gray-600">
+              GPT-4o • Claude Sonnet 4.5 • Gemini 2.0 Flash • Grok 2
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

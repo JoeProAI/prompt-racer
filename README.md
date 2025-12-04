@@ -1,6 +1,21 @@
-# Prompt Racer
+# Prompt Racer 🏁
 
-A simple AI chat application that lets you send prompts to OpenAI's GPT-4o model and get responses in real-time.
+Race 4 AI models simultaneously and see which one responds fastest! Enter a prompt and watch GPT-4o, Claude Sonnet 4.5, Gemini 2.0 Flash, and Grok 2 compete in real-time.
+
+## Features
+
+- 🏎️ **Multi-Model Racing**: Run the same prompt across 4 leading AI models in parallel
+- ⚡ **Real-Time Performance**: See millisecond-accurate response times
+- 🏆 **Winner Detection**: Automatically identifies the fastest model
+- 🎨 **Beautiful UI**: Dark theme with gold accents and racing animations
+- 📊 **Race Statistics**: Compare models with medals and timing breakdowns
+
+## Models
+
+- **GPT-4o** (OpenAI) - Green 🟢
+- **Claude Sonnet 4.5** (Anthropic) - Purple 🟣
+- **Gemini 2.0 Flash** (Google) - Blue 🔵
+- **Grok 2** (xAI) - Red 🔴
 
 ## Setup
 
@@ -11,11 +26,14 @@ A simple AI chat application that lets you send prompts to OpenAI's GPT-4o model
 npm install
 ```
 
-3. Set up your OpenAI API key:
+3. Set up your API keys:
    - Copy `.env.example` to `.env.local`
-   - Add your OpenAI API key to `.env.local`:
+   - Add all 4 API keys to `.env.local`:
    ```
-   OPENAI_API_KEY=your_actual_api_key_here
+   OPENAI_API_KEY=your_openai_api_key_here
+   ANTHROPIC_API_KEY=your_anthropic_api_key_here
+   GOOGLE_API_KEY=your_google_api_key_here
+   XAI_API_KEY=your_xai_api_key_here
    ```
 
 ## Getting Started
