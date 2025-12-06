@@ -1,0 +1,39 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Users collection - users can only read/write their own data
+    match /users/{userId} {
+      // Allow users to read their own document
+      allow read: if request.auth != null && request.auth.uid == userId;
+
+      // Allow server-side writes (via Admin SDK)
+      // Users cannot directly write to their own document to prevent credit manipulation
+      allow write: if false;
+
+      // Purchases subcollection
+      match /purchases/{purchaseId} {
+        // Users can read their own purchases
+        allow read: if request.auth != null && request.auth.uid == userId;
+
+        // Only server can write purchases
+        allow write: if false;
+      }
+    }
+
+    // Races collection - server-only writes, users can read their own races
+    match /races/{raceId} {
+      // Users can read their own races
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+
+      // Only server can write races
+      allow write: if false;
+    }
+
+    // Deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { getUserCredits, deductCredit, logRace } from '@/lib/firebase/firestore';
 import { checkAndDecrementCredits } from '@/lib/credits';
 
 // Initialize AI clients lazily with error handling
@@ -49,7 +50,7 @@ type ModelResult = {
 
 export async function POST(req: NextRequest) {
   try {
-    const { message } = await req.json();
+    const { message, userId } = await req.json();
 
     if (!message) {
       return NextResponse.json(
@@ -58,20 +59,41 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ATOMICALLY check and decrement credits
-    // This prevents cookie refresh bypass by checking BEFORE running race
-    const creditCheck = await checkAndDecrementCredits();
+    // Use Firestore if userId provided, otherwise fall back to cookies
+    let creditsRemaining = 0;
+    let useFirestore = !!userId;
 
-    // HARD BLOCK: If not allowed, user has 0 credits - block immediately
-    if (!creditCheck.allowed) {
-      console.log('[RACE] ❌ Race blocked - no credits');
-      return NextResponse.json(
-        { error: 'No credits remaining', needsPayment: true },
-        { status: 402 }
-      );
+    if (useFirestore) {
+      // Check Firestore credits
+      try {
+        const credits = await getUserCredits(userId);
+        if (credits <= 0) {
+          console.log('[RACE] ❌ Race blocked - no Firestore credits');
+          return NextResponse.json(
+            { error: 'No credits remaining', needsPayment: true },
+            { status: 402 }
+          );
+        }
+        console.log('[RACE] ✅ Race allowed - Firestore credits:', credits);
+      } catch (error) {
+        console.error('[RACE] Firestore error, falling back to cookies:', error);
+        useFirestore = false;
+      }
     }
 
-    console.log('[RACE] ✅ Race allowed - credits:', creditCheck.credits.remaining);
+    if (!useFirestore) {
+      // Fall back to cookie-based system
+      const creditCheck = await checkAndDecrementCredits();
+      if (!creditCheck.allowed) {
+        console.log('[RACE] ❌ Race blocked - no cookie credits');
+        return NextResponse.json(
+          { error: 'No credits remaining', needsPayment: true },
+          { status: 402 }
+        );
+      }
+      creditsRemaining = creditCheck.credits.remaining;
+      console.log('[RACE] ✅ Race allowed - cookie credits:', creditsRemaining);
+    }
 
     // Race all 4 models in parallel with timing
     const raceResults = await Promise.allSettled([
@@ -199,11 +221,34 @@ export async function POST(req: NextRequest) {
         ).model
       : null;
 
+    // Deduct credit and log race
+    if (useFirestore && userId) {
+      try {
+        // Deduct credit from Firestore
+        creditsRemaining = await deductCredit(userId);
+
+        // Log race results for analytics
+        await logRace(
+          userId,
+          message,
+          results.map(r => ({
+            model: r.model,
+            responseTime: r.responseTime,
+            winner: r.model === winner,
+            error: r.error,
+          })),
+          winner || 'none'
+        );
+      } catch (error) {
+        console.error('[RACE] Error deducting credit or logging race:', error);
+      }
+    }
+
     return NextResponse.json({
       results,
       winner,
       totalTime: Math.max(...results.map(r => r.responseTime)),
-      creditsRemaining: creditCheck.credits.remaining,
+      creditsRemaining,
     });
   } catch (error) {
     console.error('Error in race:', error);

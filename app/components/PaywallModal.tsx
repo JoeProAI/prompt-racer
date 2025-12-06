@@ -1,5 +1,7 @@
 'use client';
 
+import { useAuth } from '@/lib/firebase/AuthContext';
+
 type PaywallModalProps = {
   isOpen: boolean;
   onClose: () => void;
@@ -7,12 +9,17 @@ type PaywallModalProps = {
 };
 
 export default function PaywallModal({ isOpen, onClose, creditsRemaining }: PaywallModalProps) {
+  const { user } = useAuth();
+
   const handlePurchase = async (tier: string) => {
     try {
       const response = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tier }),
+        body: JSON.stringify({
+          tier,
+          userId: user?.uid, // Include Firebase user ID if available
+        }),
       });
 
       const data = await response.json();

@@ -11,8 +11,11 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.0",
     "@google/generative-ai": "^0.24.1",
+    "firebase": "^12.6.0",
+    "firebase-admin": "^13.6.0",
     "next": "^15.5.7",
     "openai": "^6.9.1",
+    "posthog-js": "^1.301.1",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "stripe": "^20.0.0"

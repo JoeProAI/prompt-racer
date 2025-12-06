@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { addCredits } from '@/lib/credits';
+import { addCredits as addCookieCredits } from '@/lib/credits';
+import { addCredits as addFirestoreCredits } from '@/lib/firebase/firestore';
 
 function getStripe() {
   if (!process.env.STRIPE_SECRET_KEY) {
@@ -14,7 +15,7 @@ function getStripe() {
 export async function POST(req: NextRequest) {
   try {
     const stripe = getStripe();
-    const { tier } = await req.json();
+    const { tier, userId } = await req.json();
 
     const pricingTiers = {
       starter: { amount: 299, credits: 10, name: 'Starter Pack' },
@@ -48,10 +49,12 @@ export async function POST(req: NextRequest) {
         },
       ],
       mode: 'payment',
-      success_url: `${req.headers.get('origin')}?success=true&credits=${selectedTier.credits}`,
+      success_url: `${req.headers.get('origin')}?success=true&credits=${selectedTier.credits}${userId ? `&userId=${userId}` : ''}`,
       cancel_url: `${req.headers.get('origin')}?canceled=true`,
       metadata: {
         credits: selectedTier.credits.toString(),
+        userId: userId || '',
+        amount: (selectedTier.amount / 100).toFixed(2),
       },
     });
 
@@ -68,7 +71,7 @@ export async function POST(req: NextRequest) {
 // Handle successful payment (add credits)
 export async function PUT(req: NextRequest) {
   try {
-    const { credits } = await req.json();
+    const { credits, userId, amount } = await req.json();
 
     if (!credits || isNaN(parseInt(credits))) {
       return NextResponse.json(
@@ -77,11 +80,30 @@ export async function PUT(req: NextRequest) {
       );
     }
 
-    const updatedCredits = await addCredits(parseInt(credits));
+    let creditsRemaining = 0;
+
+    // Use Firestore if userId provided, otherwise fall back to cookies
+    if (userId) {
+      try {
+        creditsRemaining = await addFirestoreCredits(
+          userId,
+          parseInt(credits),
+          amount ? { amount: parseFloat(amount) } : undefined
+        );
+      } catch (error) {
+        console.error('Firestore add credits error:', error);
+        // Fall back to cookies
+        const updatedCredits = await addCookieCredits(parseInt(credits));
+        creditsRemaining = updatedCredits.remaining;
+      }
+    } else {
+      const updatedCredits = await addCookieCredits(parseInt(credits));
+      creditsRemaining = updatedCredits.remaining;
+    }
 
     return NextResponse.json({
       success: true,
-      creditsRemaining: updatedCredits.remaining,
+      creditsRemaining,
     });
   } catch (error) {
     console.error('Add credits error:', error);
