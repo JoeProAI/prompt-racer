@@ -5,12 +5,15 @@ import PaywallModal from './components/PaywallModal';
 import RaceTrack from './components/RaceTrack';
 import StartCountdown from './components/StartCountdown';
 import ResponseCards from './components/ResponseCards';
+import PresetSelector from './components/PresetSelector';
 import { useAuth } from '@/lib/firebase/AuthContext';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
+import { DEFAULT_PRESET, getPresetModels } from '@/lib/models';
 
 type ModelResult = {
   model: string;
+  modelId?: string;
   content: string;
   responseTime: number;
   error?: string;
@@ -20,6 +23,7 @@ type RaceState = {
   results: ModelResult[];
   winner: string | null;
   totalTime: number;
+  preset?: string;
 };
 
 export default function Home() {
@@ -31,6 +35,7 @@ export default function Home() {
   const [showPaywall, setShowPaywall] = useState(false);
   const [showCountdown, setShowCountdown] = useState(false);
   const [totalRaces, setTotalRaces] = useState(0);
+  const [selectedPreset, setSelectedPreset] = useState(DEFAULT_PRESET);
 
   // Get Firebase auth user
   const { user } = useAuth();
@@ -140,6 +145,7 @@ export default function Home() {
         body: JSON.stringify({
           message: input,
           userId: user?.uid,
+          preset: selectedPreset,
         }),
       });
 
@@ -173,7 +179,7 @@ export default function Home() {
     } finally {
       setIsRacing(false);
     }
-  }, [input, user?.uid]);
+  }, [input, user?.uid, selectedPreset]);
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -264,22 +270,35 @@ export default function Home() {
         {/* Main Race Area */}
         <main className="flex-1 p-4 md:p-6">
           <div className="max-w-7xl mx-auto space-y-6">
-            {/* Prompt Input - Racing Style */}
+            {/* Race Control Panel */}
             <div className="bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 rounded-2xl border-2 border-gray-700 p-4 md:p-6 shadow-2xl">
-              <div className="flex items-center gap-2 mb-3">
+              <div className="flex items-center gap-2 mb-4">
                 <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
                 <div className="w-3 h-3 bg-yellow-500 rounded-full animate-pulse delay-100" />
                 <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse delay-200" />
                 <span className="ml-2 text-gray-400 text-sm font-medium">RACE CONTROL</span>
               </div>
 
+              {/* Model Preset Selector */}
+              <div className="mb-4">
+                <label className="block text-xs text-gray-400 uppercase tracking-wider mb-2">
+                  Select Race Lineup
+                </label>
+                <PresetSelector
+                  selectedPreset={selectedPreset}
+                  onPresetChange={setSelectedPreset}
+                  disabled={isRacing || showCountdown}
+                />
+              </div>
+
+              {/* Prompt Input */}
               <div className="flex flex-col md:flex-row gap-3">
                 <input
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  placeholder="Enter your prompt to race all 4 AI models..."
+                  placeholder="Enter your prompt to race the AI models..."
                   className="flex-1 px-6 py-4 bg-black/60 border-2 border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-[#ffd700] focus:ring-2 focus:ring-[#ffd700]/30 transition-all text-lg font-medium"
                   disabled={isRacing || showCountdown}
                 />
@@ -311,6 +330,7 @@ export default function Home() {
                 isRacing={isRacing}
                 results={raceData?.results || []}
                 winner={raceData?.winner || null}
+                modelNames={getPresetModels(selectedPreset).map(m => m.name)}
               />
             )}
 
@@ -346,25 +366,29 @@ export default function Home() {
                 </div>
                 <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">Ready to Race?</h2>
                 <p className="text-gray-400 mb-6">
-                  Enter a prompt above and watch 4 AI models compete!
+                  Select a lineup above and enter a prompt to race!
                 </p>
 
-                {/* Model Lineup */}
-                <div className="flex flex-wrap justify-center gap-4 mb-8">
-                  {[
-                    { name: 'GPT-4o', color: 'bg-green-500', emoji: '🟢' },
-                    { name: 'Claude Sonnet 4.5', color: 'bg-purple-500', emoji: '🟣' },
-                    { name: 'Gemini 2.0 Flash', color: 'bg-blue-500', emoji: '🔵' },
-                    { name: 'Grok 4.1 Fast', color: 'bg-red-500', emoji: '🔴' },
-                  ].map((model) => (
-                    <div
-                      key={model.name}
-                      className="flex items-center gap-2 bg-black/40 backdrop-blur-md rounded-full px-4 py-2 border border-gray-700"
-                    >
-                      <span>{model.emoji}</span>
-                      <span className="text-white font-medium text-sm">{model.name}</span>
-                    </div>
-                  ))}
+                {/* Current Lineup Preview */}
+                <div className="mb-8">
+                  <div className="text-sm text-gray-500 mb-2">Current Lineup:</div>
+                  <div className="flex flex-wrap justify-center gap-3">
+                    {getPresetModels(selectedPreset).map((model, index) => {
+                      const colorClass = model.color === 'green' ? 'bg-green-500/20 border-green-500/50 text-green-400'
+                        : model.color === 'purple' ? 'bg-purple-500/20 border-purple-500/50 text-purple-400'
+                        : model.color === 'blue' ? 'bg-blue-500/20 border-blue-500/50 text-blue-400'
+                        : 'bg-red-500/20 border-red-500/50 text-red-400';
+                      return (
+                        <div
+                          key={`${model.id}-${index}`}
+                          className={`flex items-center gap-2 rounded-full px-4 py-2 border ${colorClass}`}
+                        >
+                          <span>{model.emoji}</span>
+                          <span className="font-medium text-sm">{model.name}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 {/* Quick Start Tips */}

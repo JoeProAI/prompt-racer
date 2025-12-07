@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 
 type ModelResult = {
   model: string;
+  modelId?: string;
   content: string;
   responseTime: number;
   error?: string;
@@ -13,48 +14,71 @@ type RaceTrackProps = {
   isRacing: boolean;
   results: ModelResult[];
   winner: string | null;
+  modelNames?: string[];
 };
 
-const MODEL_CONFIG = {
-  'GPT-4o': {
-    color: 'from-green-500 to-green-600',
-    bgColor: 'bg-green-500',
-    borderColor: 'border-green-500',
-    shadowColor: 'shadow-green-500/50',
-    emoji: '🟢',
-    carEmoji: '🏎️',
-  },
-  'Claude Sonnet 4.5': {
-    color: 'from-purple-500 to-purple-600',
-    bgColor: 'bg-purple-500',
-    borderColor: 'border-purple-500',
-    shadowColor: 'shadow-purple-500/50',
-    emoji: '🟣',
-    carEmoji: '🚗',
-  },
-  'Gemini 2.0 Flash': {
-    color: 'from-blue-500 to-blue-600',
-    bgColor: 'bg-blue-500',
-    borderColor: 'border-blue-500',
-    shadowColor: 'shadow-blue-500/50',
-    emoji: '🔵',
-    carEmoji: '🚙',
-  },
-  'Grok 4.1 Fast': {
-    color: 'from-red-500 to-red-600',
-    bgColor: 'bg-red-500',
-    borderColor: 'border-red-500',
-    shadowColor: 'shadow-red-500/50',
-    emoji: '🔴',
-    carEmoji: '🏁',
-  },
-};
+// Dynamic color assignment based on model name patterns
+function getModelConfig(modelName: string) {
+  const name = modelName.toLowerCase();
+  
+  if (name.includes('gpt') || name.includes('openai') || name.includes('o3') || name.includes('o1')) {
+    return {
+      color: 'from-green-500 to-green-600',
+      bgColor: 'bg-green-500',
+      borderColor: 'border-green-500',
+      shadowColor: 'shadow-green-500/50',
+      emoji: '🟢',
+    };
+  }
+  if (name.includes('claude') || name.includes('anthropic')) {
+    return {
+      color: 'from-purple-500 to-purple-600',
+      bgColor: 'bg-purple-500',
+      borderColor: 'border-purple-500',
+      shadowColor: 'shadow-purple-500/50',
+      emoji: '🟣',
+    };
+  }
+  if (name.includes('gemini') || name.includes('google')) {
+    return {
+      color: 'from-blue-500 to-blue-600',
+      bgColor: 'bg-blue-500',
+      borderColor: 'border-blue-500',
+      shadowColor: 'shadow-blue-500/50',
+      emoji: '🔵',
+    };
+  }
+  if (name.includes('grok') || name.includes('xai')) {
+    return {
+      color: 'from-red-500 to-red-600',
+      bgColor: 'bg-red-500',
+      borderColor: 'border-red-500',
+      shadowColor: 'shadow-red-500/50',
+      emoji: '🔴',
+    };
+  }
+  // Default
+  return {
+    color: 'from-gray-500 to-gray-600',
+    bgColor: 'bg-gray-500',
+    borderColor: 'border-gray-500',
+    shadowColor: 'shadow-gray-500/50',
+    emoji: '⚪',
+  };
+}
 
-const MODELS = ['GPT-4o', 'Claude Sonnet 4.5', 'Gemini 2.0 Flash', 'Grok 4.1 Fast'] as const;
-
-export default function RaceTrack({ isRacing, results, winner }: RaceTrackProps) {
+export default function RaceTrack({ isRacing, results, winner, modelNames }: RaceTrackProps) {
   const [positions, setPositions] = useState<Record<string, number>>({});
   const [raceTime, setRaceTime] = useState(0);
+  const [racingModels, setRacingModels] = useState<string[]>([]);
+
+  // Get model names from results or props
+  const models = useMemo(() => {
+    if (results.length > 0) {
+      return results.map(r => r.model);
+    }
+    return modelNames || ['Model 1', 'Model 2', 'Model 3', 'Model 4'];
+  }, [results, modelNames]);
 
   // Calculate final positions when race ends
   useEffect(() => {
@@ -63,7 +87,6 @@ export default function RaceTrack({ isRacing, results, winner }: RaceTrackProps)
       results.forEach((r) => {
         finalPositions[r.model] = r.error ? 50 : 100;
       });
-      // Use timeout to avoid synchronous setState in effect
       const timer = setTimeout(() => setPositions(finalPositions), 0);
       return () => clearTimeout(timer);
     }
@@ -75,11 +98,14 @@ export default function RaceTrack({ isRacing, results, winner }: RaceTrackProps)
       return;
     }
 
+    // Store models being raced
+    const currentModels = models;
+    
     // Reset positions at start
     const initialPositions: Record<string, number> = {};
-    MODELS.forEach((m) => (initialPositions[m] = 0));
-    // Use timeout to avoid synchronous setState in effect
+    currentModels.forEach((m) => (initialPositions[m] = 0));
     const initTimer = setTimeout(() => {
+      setRacingModels(currentModels);
       setPositions(initialPositions);
       setRaceTime(0);
     }, 0);
@@ -89,13 +115,11 @@ export default function RaceTrack({ isRacing, results, winner }: RaceTrackProps)
       setRaceTime((t) => t + 100);
       setPositions((prev) => {
         const next = { ...prev };
-        MODELS.forEach((model) => {
+        currentModels.forEach((model) => {
           const result = results.find((r) => r.model === model);
           if (result) {
-            // Model finished - snap to 100%
             next[model] = result.error ? 50 : 100;
           } else {
-            // Still racing - random progress with some variance per model
             const speed = 2 + Math.random() * 3;
             next[model] = Math.min(95, (prev[model] || 0) + speed);
           }
@@ -108,10 +132,13 @@ export default function RaceTrack({ isRacing, results, winner }: RaceTrackProps)
       clearTimeout(initTimer);
       clearInterval(interval);
     };
-  }, [isRacing, results]);
+  }, [isRacing, results, models]);
+
+  // Get display models (use racing models during race, results after)
+  const displayModels = isRacing ? (racingModels.length > 0 ? racingModels : models) : models;
 
   // Sort models by position for ranking display
-  const sortedModels = [...MODELS].sort((a, b) => {
+  const sortedModels = [...displayModels].sort((a, b) => {
     const posA = positions[a] || 0;
     const posB = positions[b] || 0;
     return posB - posA;
@@ -167,8 +194,8 @@ export default function RaceTrack({ isRacing, results, winner }: RaceTrackProps)
 
         {/* Race Lanes */}
         <div className="relative p-4 space-y-3">
-          {MODELS.map((model, index) => {
-            const config = MODEL_CONFIG[model];
+          {displayModels.map((model, index) => {
+            const config = getModelConfig(model);
             const position = positions[model] || 0;
             const result = results.find((r) => r.model === model);
             const isWinner = winner === model;

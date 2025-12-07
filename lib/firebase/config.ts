@@ -12,16 +12,31 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Initialize Firebase app (singleton pattern)
-let app: FirebaseApp;
-let auth: Auth;
-let db: Firestore;
+// Check if Firebase is configured
+const isFirebaseConfigured = !!(
+  firebaseConfig.apiKey &&
+  firebaseConfig.authDomain &&
+  firebaseConfig.projectId &&
+  firebaseConfig.apiKey !== 'your_firebase_api_key'
+);
 
-if (typeof window !== 'undefined') {
-  // Only initialize on client-side
-  app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-  auth = getAuth(app);
-  db = getFirestore(app);
+// Initialize Firebase app (singleton pattern)
+let app: FirebaseApp | null = null;
+let auth: Auth | null = null;
+let db: Firestore | null = null;
+
+if (typeof window !== 'undefined' && isFirebaseConfigured) {
+  try {
+    // Only initialize on client-side when configured
+    app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+    auth = getAuth(app);
+    db = getFirestore(app);
+  } catch (error) {
+    console.warn('Firebase initialization failed, falling back to cookie-based credits:', error);
+    app = null;
+    auth = null;
+    db = null;
+  }
 }
 
-export { app, auth, db };
+export { app, auth, db, isFirebaseConfigured };
