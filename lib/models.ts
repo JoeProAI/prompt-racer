@@ -1,4 +1,5 @@
 // Model configuration for Prompt Racer
+// Updated December 2025 with latest released models
 
 export type ModelProvider = 'openai' | 'anthropic' | 'google' | 'xai';
 
@@ -13,9 +14,19 @@ export interface ModelConfig {
   speed: 'fast' | 'medium' | 'slow';
 }
 
-// All available models
+// All available models - Current as of December 2025
 export const AVAILABLE_MODELS: Record<string, ModelConfig> = {
   // OpenAI Models
+  'gpt-5-mini': {
+    id: 'gpt-5-mini',
+    name: 'GPT-5 Mini',
+    provider: 'openai',
+    apiModel: 'gpt-5-mini',
+    color: 'green',
+    emoji: '🟢',
+    description: 'Affordable reasoning model',
+    speed: 'fast',
+  },
   'gpt-4.1': {
     id: 'gpt-4.1',
     name: 'GPT-4.1',
@@ -23,7 +34,7 @@ export const AVAILABLE_MODELS: Record<string, ModelConfig> = {
     apiModel: 'gpt-4.1',
     color: 'green',
     emoji: '🟢',
-    description: 'Latest GPT-4.1 model',
+    description: 'Complex tasks without reasoning',
     speed: 'medium',
   },
   'gpt-4.1-mini': {
@@ -33,7 +44,7 @@ export const AVAILABLE_MODELS: Record<string, ModelConfig> = {
     apiModel: 'gpt-4.1-mini',
     color: 'green',
     emoji: '🟢',
-    description: 'Fast & efficient GPT-4.1',
+    description: 'Balanced power & affordability',
     speed: 'fast',
   },
   'gpt-4.1-nano': {
@@ -43,7 +54,7 @@ export const AVAILABLE_MODELS: Record<string, ModelConfig> = {
     apiModel: 'gpt-4.1-nano',
     color: 'green',
     emoji: '🟢',
-    description: 'Fastest GPT model',
+    description: 'Fastest & cheapest GPT',
     speed: 'fast',
   },
   'gpt-4o': {
@@ -53,18 +64,18 @@ export const AVAILABLE_MODELS: Record<string, ModelConfig> = {
     apiModel: 'gpt-4o',
     color: 'green',
     emoji: '🟢',
-    description: 'GPT-4 Omni multimodal',
+    description: 'Multimodal model',
     speed: 'medium',
   },
-  'o3-mini': {
-    id: 'o3-mini',
-    name: 'o3-mini',
+  'gpt-4o-mini': {
+    id: 'gpt-4o-mini',
+    name: 'GPT-4o Mini',
     provider: 'openai',
-    apiModel: 'o3-mini',
+    apiModel: 'gpt-4o-mini',
     color: 'green',
     emoji: '🟢',
-    description: 'Reasoning model',
-    speed: 'slow',
+    description: 'Multimodal on a budget',
+    speed: 'fast',
   },
 
   // Anthropic Models
@@ -104,20 +115,20 @@ export const AVAILABLE_MODELS: Record<string, ModelConfig> = {
     id: 'gemini-2.5-pro',
     name: 'Gemini 2.5 Pro',
     provider: 'google',
-    apiModel: 'gemini-2.5-pro-preview-06-05',
+    apiModel: 'gemini-2.5-pro',
     color: 'blue',
     emoji: '🔵',
-    description: 'Most capable Gemini',
+    description: 'State-of-the-art thinking',
     speed: 'medium',
   },
   'gemini-2.5-flash': {
     id: 'gemini-2.5-flash',
     name: 'Gemini 2.5 Flash',
     provider: 'google',
-    apiModel: 'gemini-2.5-flash-preview-05-20',
+    apiModel: 'gemini-2.5-flash',
     color: 'blue',
     emoji: '🔵',
-    description: 'Fast Gemini model',
+    description: 'Best price-performance',
     speed: 'fast',
   },
   'gemini-2.0-flash': {
@@ -127,11 +138,21 @@ export const AVAILABLE_MODELS: Record<string, ModelConfig> = {
     apiModel: 'gemini-2.0-flash',
     color: 'blue',
     emoji: '🔵',
-    description: 'Stable fast Gemini',
+    description: 'Stable fast model',
     speed: 'fast',
   },
 
   // xAI Models
+  'grok-4': {
+    id: 'grok-4',
+    name: 'Grok 4',
+    provider: 'xai',
+    apiModel: 'grok-4-0709',
+    color: 'red',
+    emoji: '🔴',
+    description: 'Flagship 256k context',
+    speed: 'medium',
+  },
   'grok-3': {
     id: 'grok-3',
     name: 'Grok 3',
@@ -139,17 +160,17 @@ export const AVAILABLE_MODELS: Record<string, ModelConfig> = {
     apiModel: 'grok-3',
     color: 'red',
     emoji: '🔴',
-    description: 'Latest Grok model',
+    description: 'Solid general capabilities',
     speed: 'medium',
   },
-  'grok-3-fast': {
-    id: 'grok-3-fast',
-    name: 'Grok 3 Fast',
+  'grok-3-mini': {
+    id: 'grok-3-mini',
+    name: 'Grok 3 Mini',
     provider: 'xai',
-    apiModel: 'grok-3-fast',
+    apiModel: 'grok-3-mini',
     color: 'red',
     emoji: '🔴',
-    description: 'Fast Grok variant',
+    description: 'Fast & cost-efficient',
     speed: 'fast',
   },
 };
@@ -169,14 +190,14 @@ export const RACE_PRESETS: RacePreset[] = [
     name: 'Speed Demons',
     description: 'Fastest models from each provider',
     emoji: '⚡',
-    models: ['gpt-4.1-mini', 'claude-haiku-3.5', 'gemini-2.5-flash', 'grok-3-fast'],
+    models: ['gpt-4.1-nano', 'claude-haiku-3.5', 'gemini-2.5-flash', 'grok-3-mini'],
   },
   {
     id: 'flagship-battle',
     name: 'Flagship Battle',
     description: 'Top-tier models head-to-head',
     emoji: '👑',
-    models: ['gpt-4.1', 'claude-opus-4', 'gemini-2.5-pro', 'grok-3'],
+    models: ['gpt-4.1', 'claude-opus-4', 'gemini-2.5-pro', 'grok-4'],
   },
   {
     id: 'balanced-mix',
@@ -186,25 +207,25 @@ export const RACE_PRESETS: RacePreset[] = [
     models: ['gpt-4o', 'claude-sonnet-4', 'gemini-2.5-flash', 'grok-3'],
   },
   {
-    id: 'claude-showdown',
-    name: 'Claude Showdown',
-    description: 'All Claude models compete',
-    emoji: '🟣',
-    models: ['claude-opus-4', 'claude-sonnet-4', 'claude-haiku-3.5', 'claude-haiku-3.5'],
+    id: 'mini-models',
+    name: 'Mini Models',
+    description: 'Small but mighty models',
+    emoji: '🤏',
+    models: ['gpt-4.1-mini', 'claude-haiku-3.5', 'gemini-2.0-flash', 'grok-3-mini'],
   },
   {
     id: 'openai-arena',
     name: 'OpenAI Arena',
     description: 'GPT models face off',
     emoji: '🟢',
-    models: ['gpt-4.1', 'gpt-4.1-mini', 'gpt-4o', 'o3-mini'],
+    models: ['gpt-5-mini', 'gpt-4.1', 'gpt-4o', 'gpt-4o-mini'],
   },
   {
-    id: 'classic',
-    name: 'Classic Race',
-    description: 'Original lineup',
-    emoji: '🏁',
-    models: ['gpt-4o', 'claude-sonnet-4', 'gemini-2.0-flash', 'grok-3-fast'],
+    id: 'claude-showdown',
+    name: 'Claude Showdown',
+    description: 'All Claude tiers compete',
+    emoji: '🟣',
+    models: ['claude-opus-4', 'claude-sonnet-4', 'claude-haiku-3.5', 'claude-haiku-3.5'],
   },
 ];
 
