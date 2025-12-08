@@ -4,7 +4,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { getUserCredits, deductCredit, logRace } from '@/lib/firebase/firestore';
 import { checkAndDecrementCredits } from '@/lib/credits';
-import { getPresetModels, DEFAULT_PRESET, ModelConfig } from '@/lib/models';
+import { getPresetModels, DEFAULT_PRESET, ModelConfig, AVAILABLE_MODELS } from '@/lib/models';
 
 // Initialize AI clients lazily with error handling
 function getOpenAI() {
@@ -119,7 +119,7 @@ async function runModel(config: ModelConfig, message: string): Promise<ModelResu
 
 export async function POST(req: NextRequest) {
   try {
-    const { message, userId, preset = DEFAULT_PRESET } = await req.json();
+    const { message, userId, preset = DEFAULT_PRESET, customModels } = await req.json();
 
     if (!message) {
       return NextResponse.json(
@@ -128,8 +128,25 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Get models for the selected preset
-    const models = getPresetModels(preset);
+    // Get models for the selected preset or custom selection
+    let models: ModelConfig[];
+    if (preset === 'custom' && customModels && Array.isArray(customModels)) {
+      // Use custom model selection
+      models = customModels
+        .map((id: string) => AVAILABLE_MODELS[id])
+        .filter(Boolean);
+      
+      if (models.length < 2) {
+        return NextResponse.json(
+          { error: 'At least 2 models are required for a race' },
+          { status: 400 }
+        );
+      }
+    } else {
+      // Use preset
+      models = getPresetModels(preset);
+    }
+
     if (models.length === 0) {
       return NextResponse.json(
         { error: 'Invalid preset or no models configured' },
@@ -137,7 +154,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    console.log(`[RACE] Starting race with preset: ${preset}, models: ${models.map(m => m.name).join(', ')}`);
+    console.log(`[RACE] Starting race with ${preset === 'custom' ? 'custom selection' : `preset: ${preset}`}, models: ${models.map(m => m.name).join(', ')}`);
 
     // Use Firestore if userId provided, otherwise fall back to cookies
     let creditsRemaining = 0;

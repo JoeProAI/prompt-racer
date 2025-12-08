@@ -9,7 +9,7 @@ import PresetSelector from './components/PresetSelector';
 import { useAuth } from '@/lib/firebase/AuthContext';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
-import { DEFAULT_PRESET, getPresetModels } from '@/lib/models';
+import { DEFAULT_PRESET, getPresetModels, AVAILABLE_MODELS } from '@/lib/models';
 
 type ModelResult = {
   model: string;
@@ -36,6 +36,15 @@ export default function Home() {
   const [showCountdown, setShowCountdown] = useState(false);
   const [totalRaces, setTotalRaces] = useState(0);
   const [selectedPreset, setSelectedPreset] = useState(DEFAULT_PRESET);
+  const [customModels, setCustomModels] = useState<string[]>([]);
+
+  // Get the models that will be raced based on preset or custom selection
+  const getSelectedModels = useCallback(() => {
+    if (selectedPreset === 'custom') {
+      return customModels.map(id => AVAILABLE_MODELS[id]).filter(Boolean);
+    }
+    return getPresetModels(selectedPreset);
+  }, [selectedPreset, customModels]);
 
   // Get Firebase auth user
   const { user } = useAuth();
@@ -118,6 +127,12 @@ export default function Home() {
   const initiateRace = () => {
     if (!input.trim() || isRacing || showCountdown) return;
 
+    // Check for minimum models in custom mode
+    if (selectedPreset === 'custom' && customModels.length < 2) {
+      alert('Please select at least 2 models to race!');
+      return;
+    }
+
     // Client-side check for credits
     if (creditsRemaining <= 0) {
       setShowPaywall(true);
@@ -146,6 +161,7 @@ export default function Home() {
           message: input,
           userId: user?.uid,
           preset: selectedPreset,
+          customModels: selectedPreset === 'custom' ? customModels : undefined,
         }),
       });
 
@@ -179,7 +195,7 @@ export default function Home() {
     } finally {
       setIsRacing(false);
     }
-  }, [input, user?.uid, selectedPreset]);
+  }, [input, user?.uid, selectedPreset, customModels]);
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -286,7 +302,9 @@ export default function Home() {
                 </label>
                 <PresetSelector
                   selectedPreset={selectedPreset}
+                  customModels={customModels}
                   onPresetChange={setSelectedPreset}
+                  onCustomModelsChange={setCustomModels}
                   disabled={isRacing || showCountdown}
                 />
               </div>
@@ -330,7 +348,7 @@ export default function Home() {
                 isRacing={isRacing}
                 results={raceData?.results || []}
                 winner={raceData?.winner || null}
-                modelNames={getPresetModels(selectedPreset).map(m => m.name)}
+                modelNames={getSelectedModels().map(m => m.name)}
               />
             )}
 
@@ -366,30 +384,36 @@ export default function Home() {
                 </div>
                 <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">Ready to Race?</h2>
                 <p className="text-gray-400 mb-6">
-                  Select a lineup above and enter a prompt to race!
+                  {selectedPreset === 'custom' 
+                    ? 'Pick your models above and enter a prompt!'
+                    : 'Select a lineup above and enter a prompt to race!'}
                 </p>
 
                 {/* Current Lineup Preview */}
-                <div className="mb-8">
-                  <div className="text-sm text-gray-500 mb-2">Current Lineup:</div>
-                  <div className="flex flex-wrap justify-center gap-3">
-                    {getPresetModels(selectedPreset).map((model, index) => {
-                      const colorClass = model.color === 'green' ? 'bg-green-500/20 border-green-500/50 text-green-400'
-                        : model.color === 'purple' ? 'bg-purple-500/20 border-purple-500/50 text-purple-400'
-                        : model.color === 'blue' ? 'bg-blue-500/20 border-blue-500/50 text-blue-400'
-                        : 'bg-red-500/20 border-red-500/50 text-red-400';
-                      return (
-                        <div
-                          key={`${model.id}-${index}`}
-                          className={`flex items-center gap-2 rounded-full px-4 py-2 border ${colorClass}`}
-                        >
-                          <span>{model.emoji}</span>
-                          <span className="font-medium text-sm">{model.name}</span>
-                        </div>
-                      );
-                    })}
+                {getSelectedModels().length > 0 && (
+                  <div className="mb-8">
+                    <div className="text-sm text-gray-500 mb-2">
+                      {selectedPreset === 'custom' ? 'Your Selection:' : 'Current Lineup:'}
+                    </div>
+                    <div className="flex flex-wrap justify-center gap-3">
+                      {getSelectedModels().map((model, index) => {
+                        const colorClass = model.color === 'green' ? 'bg-green-500/20 border-green-500/50 text-green-400'
+                          : model.color === 'purple' ? 'bg-purple-500/20 border-purple-500/50 text-purple-400'
+                          : model.color === 'blue' ? 'bg-blue-500/20 border-blue-500/50 text-blue-400'
+                          : 'bg-red-500/20 border-red-500/50 text-red-400';
+                        return (
+                          <div
+                            key={`${model.id}-${index}`}
+                            className={`flex items-center gap-2 rounded-full px-4 py-2 border ${colorClass}`}
+                          >
+                            <span>{model.emoji}</span>
+                            <span className="font-medium text-sm">{model.name}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Quick Start Tips */}
                 <div className="max-w-md mx-auto bg-black/30 backdrop-blur-md rounded-xl border border-gray-800 p-4">
